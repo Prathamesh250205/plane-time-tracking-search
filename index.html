@@ -1,0 +1,890 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plane + Time Tracking</title>
+<meta name="description" content="Self-hosted project management built on open-source Plane, extended with native time tracking, project timesheets and AI search that runs on your own server.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --bg-2: #ecebe5;
+    --surface: #ffffff;
+    --ink: #121212;
+    --ink-2: #4a4a47;
+    --ink-3: #85847e;
+    --line: rgba(18, 18, 18, 0.09);
+    --line-2: rgba(18, 18, 18, 0.16);
+    --accent: #ff5a1f;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(255, 90, 31, 0.12);
+    --good: #1f9d55;
+    --shadow: 0 1px 1px rgba(0,0,0,.04), 0 8px 24px -8px rgba(0,0,0,.14), 0 32px 64px -24px rgba(0,0,0,.18);
+    --radius: 14px;
+    --sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: "Instrument Serif", ui-serif, Georgia, serif;
+    --ease: cubic-bezier(.2, .8, .2, 1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0d0c; --bg-2: #161614; --surface: #1a1a18;
+      --ink: #f2f1ec; --ink-2: #b6b5ae; --ink-3: #7c7b75;
+      --line: rgba(255,255,255,.08); --line-2: rgba(255,255,255,.15);
+      --accent-soft: rgba(255, 90, 31, 0.16);
+      --shadow: 0 1px 1px rgba(0,0,0,.3), 0 8px 24px -8px rgba(0,0,0,.6), 0 32px 64px -24px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d0d0c; --bg-2: #161614; --surface: #1a1a18;
+    --ink: #f2f1ec; --ink-2: #b6b5ae; --ink-3: #7c7b75;
+    --line: rgba(255,255,255,.08); --line-2: rgba(255,255,255,.15);
+    --accent-soft: rgba(255, 90, 31, 0.16);
+    --shadow: 0 1px 1px rgba(0,0,0,.3), 0 8px 24px -8px rgba(0,0,0,.6), 0 32px 64px -24px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  img { max-width: 100%; display: block; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { width: min(1160px, 100% - 32px); margin-inline: auto; }
+  .mono { font-family: var(--mono); font-feature-settings: "tnum"; }
+  .serif { font-family: var(--serif); font-weight: 400; font-style: italic; letter-spacing: -0.01em; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+
+  /* ---------- nav ---------- */
+  .nav { position: sticky; top: 0; z-index: 50; backdrop-filter: saturate(1.4) blur(12px); background: color-mix(in srgb, var(--bg) 78%, transparent); border-bottom: 1px solid transparent; transition: border-color .3s; }
+  .nav.scrolled { border-bottom-color: var(--line); }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -.01em; }
+  .brand-mark { width: 22px; height: 22px; border-radius: 6px; background: var(--ink); position: relative; overflow: hidden; }
+  .brand-mark::after { content: ""; position: absolute; inset: 5px 5px auto auto; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); }
+  .nav-links { display: flex; gap: 28px; font-size: 14px; color: var(--ink-2); }
+  .nav-links a:hover { color: var(--ink); }
+  .btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 10px; font-size: 14px; font-weight: 500; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink); transition: transform .2s var(--ease), background .2s, border-color .2s; cursor: pointer; }
+  .btn:hover { transform: translateY(-1px); border-color: var(--ink-3); }
+  .btn-primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn-primary:hover { border-color: var(--ink); }
+  .btn-sm { height: 34px; padding: 0 12px; font-size: 13px; }
+  .btn .arrow { transition: transform .2s var(--ease); }
+  .btn:hover .arrow { transform: translateX(3px); }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; padding: 88px 0 40px; }
+  .hero-grid-bg { position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 56px 56px; mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 75%); }
+  .hero-glow { position: absolute; z-index: -1; width: 720px; height: 720px; left: 50%; top: -220px; translate: -50% 0; border-radius: 50%;
+    background: radial-gradient(closest-side, var(--accent-soft), transparent); filter: blur(20px); animation: breathe 9s var(--ease) infinite alternate; }
+  @keyframes breathe { from { transform: scale(.92); opacity: .7; } to { transform: scale(1.08); opacity: 1; } }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); font-size: 13px; color: var(--ink-2); }
+  .pill b { font-weight: 500; font-size: 11px; font-family: var(--mono); background: var(--accent); color: var(--accent-ink); padding: 2px 8px; border-radius: 999px; letter-spacing: .04em; }
+  h1 { font-size: clamp(42px, 7vw, 84px); line-height: .98; letter-spacing: -.045em; font-weight: 600; margin: 22px 0 18px; max-width: 14ch; }
+  h1 .serif { font-size: 1.06em; letter-spacing: -.02em; color: var(--accent); }
+  .lede { font-size: clamp(17px, 2vw, 19px); color: var(--ink-2); max-width: 54ch; margin: 0 0 28px; }
+  .cta { display: flex; gap: 10px; flex-wrap: wrap; }
+  .hero-top { text-align: center; display: flex; flex-direction: column; align-items: center; }
+  .hero-top h1, .hero-top .lede { margin-inline: auto; }
+
+  /* split-letter headline reveal */
+  .split .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .08em; }
+  .split .w > span { display: inline-block; transform: translateY(105%); animation: rise .9s var(--ease) forwards; }
+  @keyframes rise { to { transform: none; } }
+
+  /* ---------- 3D stage ---------- */
+  .stage { perspective: 1800px; margin-top: 64px; height: clamp(320px, 52vw, 600px); position: relative; }
+  .stage-inner { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(var(--rx, 14deg)) rotateY(var(--ry, -8deg)); transition: transform .6s var(--ease); will-change: transform; }
+  .shot { position: absolute; border-radius: var(--radius); overflow: hidden; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow); transform-style: preserve-3d; }
+  .shot img { width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+  .shot .bar { height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-bottom: 1px solid var(--line); background: var(--bg-2); }
+  .shot .bar i { width: 8px; height: 8px; border-radius: 50%; background: var(--line-2); }
+  .shot-main { left: 8%; right: 8%; top: 0; bottom: 6%; transform: translateZ(0); }
+  .shot-left { left: -2%; width: 36%; top: 30%; height: 56%; transform: translateZ(90px) rotateY(14deg); }
+  .shot-right { right: -1%; width: 34%; top: 12%; height: 52%; transform: translateZ(140px) rotateY(-12deg); }
+  .chip { position: absolute; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow); font-size: 13px; white-space: nowrap; transform-style: preserve-3d; animation: bob 6s ease-in-out infinite; }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 0 rgba(31,157,85,.6); animation: ping 2s infinite; }
+  @keyframes ping { 70% { box-shadow: 0 0 0 8px rgba(31,157,85,0); } 100% { box-shadow: 0 0 0 0 rgba(31,157,85,0); } }
+  @keyframes bob { 0%,100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+  .chip-timer { left: 4%; top: 6%; transform: translateZ(220px); }
+  .chip-timer .t { font-family: var(--mono); font-size: 18px; font-weight: 500; letter-spacing: -.02em; }
+  .chip-done { right: 6%; bottom: 2%; transform: translateZ(200px); animation-delay: -2s; }
+  .chip-done .check { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 11px; }
+
+  /* ---------- facts strip ---------- */
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 72px; }
+  .fact { padding: 26px 20px; border-left: 1px solid var(--line); }
+  .fact:first-child { border-left: 0; }
+  .fact .n { font-size: 34px; font-weight: 600; letter-spacing: -.04em; }
+  .fact .l { color: var(--ink-3); font-size: 14px; }
+
+  /* ---------- sections ---------- */
+  section { padding: 110px 0; }
+  .sec-head { display: flex; flex-direction: column; gap: 14px; max-width: 680px; margin-bottom: 52px; }
+  h2 { font-size: clamp(32px, 4.6vw, 54px); line-height: 1.02; letter-spacing: -.04em; font-weight: 600; margin: 0; }
+  h2 .serif { color: var(--accent); }
+  .sec-head p { color: var(--ink-2); font-size: 18px; margin: 0; }
+
+  /* reveal on scroll */
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity .9s var(--ease), transform .9s var(--ease); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  /* ---------- bento ---------- */
+  .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .card { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px; overflow: hidden; transform-style: preserve-3d; transition: transform .5s var(--ease), border-color .3s, box-shadow .5s var(--ease); }
+  .card:hover { border-color: var(--line-2); box-shadow: var(--shadow); }
+  .card h3 { margin: 0 0 6px; font-size: 19px; letter-spacing: -.02em; font-weight: 600; }
+  .card p { margin: 0; color: var(--ink-2); font-size: 15px; }
+  .card .glare { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s; background: radial-gradient(400px circle at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,.18), transparent 45%); }
+  .card:hover .glare { opacity: 1; }
+  .c-3 { grid-column: span 3; } .c-2 { grid-column: span 2; } .c-4 { grid-column: span 4; }
+  .viz { margin-top: 22px; height: 170px; position: relative; }
+
+  /* layouts switcher viz */
+  .layouts { display: flex; gap: 6px; margin-bottom: 12px; }
+  .layouts span { font-family: var(--mono); font-size: 11px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--ink-3); transition: all .3s; }
+  .layouts span.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .lay { position: absolute; inset: 34px 0 0; transition: opacity .5s var(--ease), transform .5s var(--ease); }
+  .lay:not(.on) { opacity: 0; transform: translateY(8px); pointer-events: none; }
+  .lay-list div { height: 22px; border-radius: 6px; background: var(--bg-2); margin-bottom: 7px; display: flex; align-items: center; gap: 8px; padding: 0 8px; }
+  .lay-list div::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--ink-3); }
+  .lay-list div::after { content: ""; height: 6px; border-radius: 3px; background: var(--line-2); width: var(--w, 50%); }
+  .lay-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .lay-board div { border-radius: 8px; background: var(--bg-2); padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+  .lay-board i { display: block; height: 24px; border-radius: 5px; background: var(--surface); border: 1px solid var(--line); }
+  .lay-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .lay-cal i { aspect-ratio: 1.3; border-radius: 4px; background: var(--bg-2); }
+  .lay-cal i.ev { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+  .lay-gantt div { height: 16px; margin-bottom: 9px; border-radius: 4px; background: var(--ink); opacity: .85; margin-left: var(--x); width: var(--w); }
+  .lay-gantt div:nth-child(2n) { background: var(--accent); }
+
+  /* cycle ring */
+  .ring { width: 140px; height: 140px; margin: 0 auto; position: relative; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .val { position: absolute; inset: 0; display: grid; place-items: center; font-size: 28px; font-weight: 600; letter-spacing: -.03em; }
+  .ring circle { fill: none; stroke-width: 10; }
+  .ring .track { stroke: var(--bg-2); }
+  .ring .prog { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 377; stroke-dashoffset: 377; transition: stroke-dashoffset 1.6s var(--ease); }
+
+  /* pages live typing */
+  .doc { background: var(--bg-2); border-radius: 10px; padding: 14px 16px; height: 100%; font-size: 14px; }
+  .doc h4 { margin: 0 0 6px; font-size: 15px; }
+  .doc .typed { color: var(--ink-2); }
+  .caret { display: inline-block; width: 2px; height: 1.1em; vertical-align: -3px; background: var(--accent); margin-left: 1px; animation: blink 1s steps(1) infinite; }
+  .cursor-tag { display: inline-block; font-family: var(--mono); font-size: 10px; background: var(--accent); color: #fff; padding: 1px 5px; border-radius: 3px; vertical-align: 10px; margin-left: -2px; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* modules / intake mini viz */
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .stack .row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 8px 10px; border-radius: 8px; background: var(--bg-2); }
+  .meter { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; width: 90px; }
+  .meter i { display: block; height: 100%; background: var(--ink); width: 0; transition: width 1.4s var(--ease); }
+  .tag { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 5px; border: 1px solid var(--line-2); color: var(--ink-2); }
+  .tag.ok { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
+  .tag.wait { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+
+  /* ---------- time tracking spotlight ---------- */
+  .tt { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; }
+  .tt-list { list-style: none; padding: 0; margin: 28px 0 0; display: grid; gap: 18px; }
+  .tt-list li { display: grid; grid-template-columns: 28px 1fr; gap: 12px; }
+  .tt-list .k { font-family: var(--mono); font-size: 12px; color: var(--accent); padding-top: 3px; }
+  .tt-list b { display: block; font-weight: 600; letter-spacing: -.01em; }
+  .tt-list span { color: var(--ink-2); font-size: 15px; }
+  .panel-3d { perspective: 1200px; }
+  .panel { background: var(--surface); border: 1px solid var(--line-2); border-radius: 16px; box-shadow: var(--shadow); padding: 18px; transform: rotateY(-10deg) rotateX(6deg); transition: transform .6s var(--ease); transform-style: preserve-3d; }
+  .panel-3d:hover .panel { transform: rotateY(-3deg) rotateX(2deg); }
+  .panel-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .panel-head .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+  .panel-head .total { font-family: var(--mono); font-size: 26px; font-weight: 500; letter-spacing: -.03em; }
+  .share { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--bg-2); margin: 12px 0 8px; }
+  .share i { height: 100%; transition: width .7s var(--ease); }
+  .share i:nth-child(1) { background: var(--accent); }
+  .share i:nth-child(2) { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+  .share i:nth-child(3) { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink-3); flex-wrap: wrap; }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .legend span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+  .field { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .input { flex: 1; height: 36px; border: 1px solid var(--line-2); border-radius: 8px; display: flex; align-items: center; padding: 0 10px; font-family: var(--mono); font-size: 14px; background: var(--bg); }
+  .quick { display: flex; gap: 6px; margin-top: 8px; }
+  .quick span { font-family: var(--mono); font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--ink-2); transition: all .25s; }
+  .quick span.hit { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .log-btn { height: 36px; padding: 0 14px; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 500; display: grid; place-items: center; transition: transform .15s; }
+  .log-btn.press { transform: scale(.95); }
+  .entries { list-style: none; margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; min-height: 160px; }
+  .entries li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 8px; border-radius: 8px; font-size: 13px; animation: slideIn .5s var(--ease) both; }
+  .entries li:hover { background: var(--bg-2); }
+  .entries .d { font-family: var(--mono); font-weight: 500; min-width: 58px; }
+  .entries .m { color: var(--ink-3); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+
+  /* ---------- timesheet + smart search ---------- */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .duo .card { display: flex; flex-direction: column; }
+  .demo { margin-top: 22px; flex: 1; display: flex; flex-direction: column; }
+  .week { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .week .lbl { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .week button { font: inherit; font-size: 13px; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink); cursor: pointer; transition: transform .15s; }
+  .week button:active { transform: scale(.92); }
+  .ts { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: 12px; table-layout: fixed; }
+  .ts td, .ts th { white-space: nowrap; }
+  .ts th { font-family: var(--mono); font-weight: 400; font-size: 11px; color: var(--ink-3); padding-bottom: 2px; }
+  .ts th:first-child, .ts td:first-child { text-align: left; width: 22%; }
+  .ts th:last-child, .ts td:last-child { text-align: right; width: 16%; font-family: var(--mono); }
+  .ts td i { display: grid; place-items: center; height: 30px; border-radius: 6px; font-style: normal; font-family: var(--mono); font-size: 11px;
+    background: color-mix(in srgb, var(--accent) calc(var(--h, 0) * 1%), var(--bg-2)); color: var(--h-ink, var(--ink-3)); transition: background .6s var(--ease), color .4s; }
+  .ts tfoot td { color: var(--ink-3); padding-top: 4px; border-top: 1px solid var(--line); text-align: center; font-family: var(--mono); font-size: 11px; }
+  .ts tfoot td:last-child { color: var(--ink); font-weight: 500; }
+  .sbox { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid var(--accent); border-radius: 10px; background: var(--bg); font-size: 14px; box-shadow: 0 0 0 4px var(--accent-soft); }
+  .sbox svg { flex-shrink: 0; color: var(--accent); }
+  .sres { list-style: none; margin: 12px 0 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-height: 188px; }
+  .sres li { display: grid; grid-template-columns: 52px 1fr 70px; gap: 10px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 13px; animation: slideIn .5s var(--ease) both; }
+  .sres li:last-child { border-bottom: 0; }
+  .sres .id { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .sres .bar { height: 5px; border-radius: 3px; background: var(--bg-2); overflow: hidden; }
+  .sres .bar i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--accent); transition: width .8s var(--ease); }
+  .sres li.more { display: block; color: var(--ink-3); font-size: 12px; }
+
+  /* ---------- live board ---------- */
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; perspective: 1400px; }
+  .col { background: var(--bg-2); border-radius: 14px; padding: 12px; min-height: 290px; border: 1px solid var(--line); }
+  .col-h { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 500; margin-bottom: 10px; }
+  .col-h .ct { font-family: var(--mono); color: var(--ink-3); font-size: 12px; }
+  .col-h .s { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--c); margin-right: 8px; }
+  .kcard { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .kcard .id { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .kcard .ft { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .kcard .time { font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+  .kcard.moving { box-shadow: var(--shadow); z-index: 5; position: relative; }
+
+  /* ---------- self-host ---------- */
+  .host { display: grid; grid-template-columns: .9fr 1.1fr; gap: 56px; align-items: center; }
+  .term { background: #0f0f0e; color: #e9e8e3; border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,.08); }
+  .term-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.08); font-family: var(--mono); font-size: 12px; color: #8b8a84; }
+  .term pre { margin: 0; padding: 18px 20px; font-family: var(--mono); font-size: 13.5px; line-height: 1.8; overflow-x: auto; white-space: pre; }
+  .term .c { color: #7c7b75; } .term .p { color: var(--accent); } .term .ok { color: #4ade80; }
+  .copy { font-family: var(--mono); font-size: 11px; color: #c9c8c2; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+
+  /* ---------- footer ---------- */
+  .final { text-align: center; padding: 120px 0; border-top: 1px solid var(--line); }
+  .final h2 { max-width: 16ch; margin: 0 auto 26px; }
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--ink-3); font-size: 13px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer a { text-decoration: underline; text-underline-offset: 3px; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 900px) {
+    .nav-links { display: none; }
+    .facts { grid-template-columns: repeat(2, 1fr); }
+    .fact:nth-child(3) { border-left: 0; }
+    .fact:nth-child(n+3) { border-top: 1px solid var(--line); }
+    .bento { grid-template-columns: 1fr; }
+    .c-2, .c-3, .c-4 { grid-column: auto; }
+    .tt, .host, .duo { grid-template-columns: 1fr; gap: 36px; }
+    .board { grid-template-columns: repeat(2, 1fr); }
+    .shot-left, .shot-right { display: none; }
+    .shot-main { left: 0; right: 0; }
+    .chip-timer { left: 2%; }
+    section { padding: 80px 0; }
+  }
+  @media (max-width: 520px) {
+    .board { grid-template-columns: 1fr; }
+    .chip-done { display: none; }
+    .ts { border-spacing: 2px; }
+    .ts td i, .ts tfoot td { font-size: 9.5px; letter-spacing: -.04em; }
+    .ts th:first-child, .ts td:first-child { width: 17%; }
+  }
+
+  /* ---------- reduced motion ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .split .w > span { transform: none; }
+    .reveal { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Home"><span class="brand-mark" aria-hidden="true"></span>Plane <span style="color:var(--ink-3);font-weight:400">+ Time</span></a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#time">Time tracking</a>
+      <a href="#insights">Timesheet &amp; search</a>
+      <a href="#board">Live board</a>
+      <a href="#self-host">Self-host</a>
+    </nav>
+    <a class="btn btn-sm btn-primary" href="https://plane-demo-v6r4p4rw5rxqf54j-80.app.github.dev" target="_blank" rel="noopener">Try it live <span class="arrow" aria-hidden="true">→</span></a>
+  </div>
+</header>
+
+<main id="top">
+  <!-- ================= HERO ================= -->
+  <section class="hero" style="padding-bottom:0">
+    <div class="hero-grid-bg" aria-hidden="true"></div>
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="wrap hero-top">
+      <span class="pill"><b>NEW</b> Time tracking, timesheets and AI search</span>
+      <h1 class="split" data-split>Plan the work. Track the <span class="serif">hours.</span> Ship.</h1>
+      <p class="lede">Self-hosted project management built on open-source Plane, now with time logs on every work item, a weekly timesheet per project, and search that finds work by meaning.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://plane-demo-v6r4p4rw5rxqf54j-80.app.github.dev" target="_blank" rel="noopener">Try it live <span class="arrow" aria-hidden="true">→</span></a>
+        <a class="btn" href="https://github.com/Prathamesh250205/plane-time-tracking-search" rel="noopener">View on GitHub</a>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="stage" id="stage" aria-label="Product screenshots">
+        <div class="stage-inner" id="stageInner">
+          <figure class="shot shot-main" style="margin:0">
+            <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
+            <img src="assets/board.png" alt="Kanban board with work items grouped by state">
+          </figure>
+          <figure class="shot shot-left" style="margin:0">
+            <img src="assets/timesheet.png" alt="Project timesheet with hours per person and day">
+          </figure>
+          <figure class="shot shot-right" style="margin:0">
+            <img src="assets/time-tracking.png" alt="Time tracking popover on a work item with logged entries">
+          </figure>
+          <div class="chip chip-timer" aria-label="Live timer">
+            <span class="dot" aria-hidden="true"></span>
+            <div>
+              <div style="font-size:11px;color:var(--ink-3)">WEB-2 · Fix navbar bug</div>
+              <div class="t mono" id="liveTimer">02:15:00</div>
+            </div>
+          </div>
+          <div class="chip chip-done">
+            <span class="check" aria-hidden="true">✓</span>
+            <span><b class="mono" style="font-weight:500">45m</b> logged by you</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="facts reveal">
+        <div class="fact"><div class="n mono" data-count="5">0</div><div class="l">Layouts: list, board, calendar, sheet, Gantt</div></div>
+        <div class="fact"><div class="n mono" data-count="16">0</div><div class="l">API tests for time tracking and search</div></div>
+        <div class="fact"><div class="n mono" data-count="5">0</div><div class="l">Endpoints: log, edit, delete, summary, search</div></div>
+        <div class="fact"><div class="n mono">100%</div><div class="l">Self-hosted. Your data, your server</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FEATURES ================= -->
+  <section id="features">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Everything in one place</span>
+        <h2>From backlog to <span class="serif">shipped,</span> without switching tools.</h2>
+        <p>Work items, cycles, modules, docs and intake, all in one place with the same keyboard-first speed.</p>
+      </div>
+
+      <div class="bento">
+        <article class="card c-4 reveal tilt">
+          <div class="glare" aria-hidden="true"></div>
+          <h3>Five ways to see the same work</h3>
+          <p>Switch between list, board, calendar, spreadsheet and Gantt. Filters and grouping follow you.</p>
+          <div class="viz" id="layoutViz">
+            <div class="layouts" role="tablist" aria-label="Layouts">
+              <span data-l="list" class="on">List</span><span data-l="board">Board</span><span data-l="cal">Calendar</span><span data-l="gantt">Gantt</span>
+            </div>
+            <div class="lay lay-list on" data-l="list"><div style="--w:62%"></div><div style="--w:40%"></div><div style="--w:74%"></div><div style="--w:52%"></div></div>
+            <div class="lay lay-board" data-l="board"><div><i></i><i></i><i></i></div><div><i></i><i></i></div><div><i></i></div></div>
+            <div class="lay lay-cal" data-l="cal"><i></i><i></i><i class="ev"></i><i></i><i></i><i></i><i></i><i></i><i class="ev"></i><i></i><i></i><i></i><i class="ev"></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="ev"></i><i></i></div>
+            <div class="lay lay-gantt" data-l="gantt"><div style="--x:0%;--w:38%"></div><div style="--x:22%;--w:30%"></div><div style="--x:40%;--w:46%"></div><div style="--x:58%;--w:28%"></div></div>
+          </div>
+        </article>
+
+        <article class="card c-2 reveal tilt">
+          <div class="glare" aria-hidden="true"></div>
+          <h3>Cycles</h3>
+          <p>Time-boxed sprints with live progress.</p>
+          <div class="viz" style="display:grid;place-items:center">
+            <div class="ring">
+              <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden="true"><circle class="track" cx="70" cy="70" r="60"/><circle class="prog" id="ringProg" cx="70" cy="70" r="60"/></svg>
+              <div class="val mono" id="ringVal">0%</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card c-3 reveal tilt">
+          <div class="glare" aria-hidden="true"></div>
+          <h3>Pages, edited together</h3>
+          <p>Specs and notes next to the work. See teammates type in real time.</p>
+          <div class="viz">
+            <div class="doc">
+              <h4>Sprint 1 notes</h4>
+              <div><span class="typed" id="typed"></span><span class="caret" aria-hidden="true"></span><span class="cursor-tag" aria-hidden="true">Aisha</span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card c-3 reveal tilt">
+          <div class="glare" aria-hidden="true"></div>
+          <h3>Modules &amp; intake</h3>
+          <p>Group work by feature, and triage requests before they hit the backlog.</p>
+          <div class="viz stack">
+            <div class="row"><span>Authentication</span><span class="meter"><i data-w="72%"></i></span></div>
+            <div class="row"><span>Billing</span><span class="meter"><i data-w="38%"></i></span></div>
+            <div class="row"><span>Request: dark mode toggle</span><span class="tag wait">pending</span></div>
+            <div class="row"><span>Users report slow dashboard</span><span class="tag ok">accepted</span></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TIME TRACKING ================= -->
+  <section id="time" style="background:var(--bg-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+    <div class="wrap tt">
+      <div class="reveal">
+        <span class="eyebrow">New in this build</span>
+        <h2 style="margin-top:14px">Know where the <span class="serif">hours</span> actually go.</h2>
+        <p style="color:var(--ink-2);font-size:18px;margin:16px 0 0;max-width:46ch">Log time right where the work lives. No timesheet tab, no separate tool. Type <span class="mono" style="color:var(--ink)">1h 30m</span> and get back to work.</p>
+        <ul class="tt-list">
+          <li><span class="k">01</span><div><b>Log in plain language</b><span><span class="mono">1h 30m</span>, <span class="mono">1.5h</span>, <span class="mono">45m</span> or one-click quick picks.</span></div></li>
+          <li><span class="k">02</span><div><b>See who did what</b><span>A per-person share bar on every work item, right in the sidebar.</span></div></li>
+          <li><span class="k">03</span><div><b>Report with one API call</b><span>Totals by person and by work item, filterable by cycle and date range.</span></div></li>
+          <li><span class="k">04</span><div><b>Built for real teams</b><span>Only authors can edit their own entries, guests can view but not log, and dates work across time zones.</span></div></li>
+        </ul>
+      </div>
+
+      <div class="panel-3d reveal">
+        <div class="panel" aria-label="Time tracking demo">
+          <div class="panel-head">
+            <span class="lbl">Time logged</span>
+            <span class="total" id="ttTotal">0m</span>
+          </div>
+          <div class="share" aria-hidden="true"><i id="s1" style="width:0"></i><i id="s2" style="width:0"></i><i id="s3" style="width:0"></i></div>
+          <div class="legend">
+            <span style="--c:var(--accent)">You · <b class="mono" id="l1" style="font-weight:500">0m</b></span>
+            <span style="--c:color-mix(in srgb,var(--accent) 55%,transparent)">Aisha · <b class="mono" id="l2" style="font-weight:500">0m</b></span>
+            <span style="--c:color-mix(in srgb,var(--accent) 28%,transparent)">Marco · <b class="mono" id="l3" style="font-weight:500">0m</b></span>
+          </div>
+          <div class="field">
+            <div class="input" id="ttInput" aria-hidden="true"><span id="ttTyped"></span><span class="caret"></span></div>
+            <div class="log-btn" id="ttBtn">Log time</div>
+          </div>
+          <div class="quick" aria-hidden="true"><span>15m</span><span>30m</span><span>1h</span><span>2h</span></div>
+          <ul class="entries" id="ttEntries"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TIMESHEET + SMART SEARCH ================= -->
+  <section id="insights">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Also new</span>
+        <h2>See the <span class="serif">week.</span> Find anything.</h2>
+        <p>A timesheet for every project, and search that understands what you mean, not just what you typed.</p>
+      </div>
+      <div class="duo">
+        <article class="card reveal tilt" id="tsCard">
+          <div class="glare" aria-hidden="true"></div>
+          <h3>Timesheet</h3>
+          <p>Person by day for any week, shaded by hours, with daily totals and a breakdown by work item.</p>
+          <div class="demo">
+            <div class="week">
+              <button type="button" id="tsPrev" aria-label="Previous week">‹</button>
+              <span class="lbl" id="tsLabel" aria-live="polite"></span>
+              <button type="button" id="tsNext" aria-label="Next week">›</button>
+            </div>
+            <table class="ts" aria-label="Example timesheet">
+              <thead><tr><th>Person</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Total</th></tr></thead>
+              <tbody id="tsBody"></tbody>
+              <tfoot><tr id="tsFoot"></tr></tfoot>
+            </table>
+          </div>
+        </article>
+
+        <article class="card reveal tilt" id="srCard">
+          <div class="glare" aria-hidden="true"></div>
+          <h3>Smart search</h3>
+          <p>Describe it in your own words. A local AI model ranks work items by meaning, so “sluggish” finds “slow dashboard”.</p>
+          <div class="demo">
+            <div class="sbox" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></svg>
+              <span id="srTyped"></span><span class="caret"></span>
+            </div>
+            <ul class="sres" id="srList" aria-live="polite"></ul>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LIVE BOARD ================= -->
+  <section id="board">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Live</span>
+        <h2>Work that <span class="serif">moves</span> on its own.</h2>
+        <p>A board that updates as your team works. Cards flow from backlog to done, each with its time logged.</p>
+      </div>
+      <div class="board reveal" id="kanban">
+        <div class="col" data-col="0"><div class="col-h"><span><span class="s" style="--c:var(--ink-3)"></span>Backlog</span><span class="ct">0</span></div></div>
+        <div class="col" data-col="1"><div class="col-h"><span><span class="s" style="--c:#5b8def"></span>Todo</span><span class="ct">0</span></div></div>
+        <div class="col" data-col="2"><div class="col-h"><span><span class="s" style="--c:#f2b33d"></span>In progress</span><span class="ct">0</span></div></div>
+        <div class="col" data-col="3"><div class="col-h"><span><span class="s" style="--c:var(--good)"></span>Done</span><span class="ct">0</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SELF HOST ================= -->
+  <section id="self-host" style="border-top:1px solid var(--line)">
+    <div class="wrap host">
+      <div class="reveal">
+        <span class="eyebrow">Self-host</span>
+        <h2 style="margin-top:14px">Your server. <span class="serif">Your data.</span></h2>
+        <p style="color:var(--ink-2);font-size:18px;margin:16px 0 0;max-width:44ch">The whole stack (web, API, workers, Postgres, Redis, RabbitMQ, object storage and a small CPU-only embedding model for search) runs with one Docker Compose command. No API keys: your work items never leave your server.</p>
+      </div>
+      <div class="term reveal">
+        <div class="term-bar"><span>~/plane/deployments/cli/community</span><button class="copy" id="copyBtn" type="button">copy</button></div>
+<pre id="cmd"><span class="c"># start the stack with time tracking and search</span>
+<span class="p">$</span> docker compose -p plane --env-file plane.env \
+    -f docker-compose.yml -f docker-compose.local.yml up -d
+
+<span class="c"># migrations run automatically</span>
+  Applying db.0126_issue_worklog... <span class="ok">OK</span>
+  Applying db.0127_issue_embedding... <span class="ok">OK</span>
+
+<span class="c"># open the app</span>
+<span class="p">$</span> open http://localhost</pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap reveal">
+      <h2>Stop guessing where the <span class="serif">week</span> went.</h2>
+      <div class="cta" style="justify-content:center">
+        <a class="btn btn-primary" href="https://plane-demo-v6r4p4rw5rxqf54j-80.app.github.dev" target="_blank" rel="noopener">Try it live <span class="arrow" aria-hidden="true">→</span></a>
+        <a class="btn" href="#time">How time tracking works</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Built on <a href="https://github.com/makeplane/plane" rel="noopener">Plane</a>, the open-source project management tool (AGPL-3.0). Time tracking is an independent extension.</span>
+    <span class="mono">feature/time-tracking</span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const fmt = (m) => { const h = Math.floor(m / 60), r = m % 60; return h ? (r ? `${h}h ${r}m` : `${h}h`) : `${r}m`; };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // nav border on scroll
+  const nav = $("#nav");
+  addEventListener("scroll", () => nav.classList.toggle("scrolled", scrollY > 8), { passive: true });
+
+  // split headline into words for the rise animation
+  $$("[data-split]").forEach((el) => {
+    if (reduce) return;
+    let i = 0;
+    const wrapWords = (node) => {
+      [...node.childNodes].forEach((child) => {
+        if (child.nodeType === 3) {
+          const frag = document.createDocumentFragment();
+          child.textContent.split(/(\s+)/).forEach((part) => {
+            if (!part.trim()) { frag.append(part); return; }
+            const w = document.createElement("span"); w.className = "w";
+            const inner = document.createElement("span"); inner.textContent = part;
+            inner.style.animationDelay = `${80 + i++ * 70}ms`;
+            w.append(inner); frag.append(w);
+          });
+          child.replaceWith(frag);
+        } else if (child.nodeType === 1) {
+          const w = document.createElement("span"); w.className = "w";
+          const inner = child.cloneNode(true); inner.style.animationDelay = `${80 + i++ * 70}ms`;
+          inner.style.display = "inline-block"; inner.style.transform = "translateY(105%)"; inner.style.animation = `rise .9s var(--ease) ${inner.style.animationDelay} forwards`;
+          w.append(inner); child.replaceWith(w);
+        }
+      });
+    };
+    wrapWords(el);
+  });
+
+  // 3D stage follows the pointer
+  const stage = $("#stage"), inner = $("#stageInner");
+  if (!reduce && matchMedia("(pointer: fine)").matches) {
+    stage.addEventListener("pointermove", (e) => {
+      const r = stage.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+      inner.style.setProperty("--ry", `${-8 + x * 14}deg`);
+      inner.style.setProperty("--rx", `${14 - y * 10}deg`);
+    });
+    stage.addEventListener("pointerleave", () => { inner.style.removeProperty("--ry"); inner.style.removeProperty("--rx"); });
+  }
+  // flatten the stage as it scrolls into view
+  if (!reduce) {
+    const onScroll = () => {
+      const r = stage.getBoundingClientRect();
+      const p = Math.min(1, Math.max(0, 1 - r.top / innerHeight));
+      if (!stage.matches(":hover")) inner.style.setProperty("--rx", `${14 - p * 10}deg`);
+    };
+    addEventListener("scroll", onScroll, { passive: true }); onScroll();
+  }
+
+  // live timer chip
+  let seconds = 2 * 3600 + 15 * 60;
+  const timer = $("#liveTimer");
+  const pad = (n) => String(n).padStart(2, "0");
+  setInterval(() => { seconds++; timer.textContent = `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`; }, 1000);
+
+  // tilt + glare on bento cards
+  if (!reduce && matchMedia("(pointer: fine)").matches) {
+    $$(".tilt").forEach((card) => {
+      card.addEventListener("pointermove", (e) => {
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+        card.style.transform = `perspective(900px) rotateX(${(0.5 - y) * 6}deg) rotateY(${(x - 0.5) * 8}deg)`;
+        card.style.setProperty("--gx", `${x * 100}%`); card.style.setProperty("--gy", `${y * 100}%`);
+      });
+      card.addEventListener("pointerleave", () => { card.style.transform = ""; });
+    });
+  }
+
+  // reveal on scroll + one-shot section animations
+  const once = new Map();
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((en) => {
+      if (!en.isIntersecting) return;
+      en.target.classList.add("in");
+      const fn = once.get(en.target); if (fn) { once.delete(en.target); fn(); }
+      io.unobserve(en.target);
+    });
+  }, { threshold: 0.18 });
+  $$(".reveal").forEach((el) => io.observe(el));
+
+  // count-up facts
+  const facts = $(".facts");
+  once.set(facts, () => $$("[data-count]", facts).forEach((el) => {
+    const end = +el.dataset.count; if (reduce) { el.textContent = end; return; }
+    const t0 = performance.now();
+    const step = (t) => { const k = Math.min(1, (t - t0) / 1200); el.textContent = Math.round(end * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }));
+
+  // layouts cycler
+  const viz = $("#layoutViz");
+  const order = ["list", "board", "cal", "gantt"]; let li = 0;
+  const showLayout = (l) => { $$(".layouts span", viz).forEach((s) => s.classList.toggle("on", s.dataset.l === l)); $$(".lay", viz).forEach((s) => s.classList.toggle("on", s.dataset.l === l)); };
+  $$(".layouts span", viz).forEach((s) => s.addEventListener("click", () => { li = order.indexOf(s.dataset.l); showLayout(s.dataset.l); }));
+  if (!reduce) setInterval(() => { li = (li + 1) % order.length; showLayout(order[li]); }, 2400);
+
+  // cycle ring + module meters
+  const ringCard = $("#ringProg").closest(".card");
+  once.set(ringCard, () => {
+    const pct = 67; $("#ringProg").style.strokeDashoffset = 377 * (1 - pct / 100);
+    const v = $("#ringVal"); const t0 = performance.now();
+    const step = (t) => { const k = Math.min(1, (t - t0) / 1600); v.textContent = Math.round(pct * (1 - Math.pow(1 - k, 3))) + "%"; if (k < 1) requestAnimationFrame(step); };
+    reduce ? (v.textContent = pct + "%") : requestAnimationFrame(step);
+  });
+  const modCard = $(".meter").closest(".card");
+  once.set(modCard, () => $$(".meter i").forEach((i) => (i.style.width = i.dataset.w)));
+
+  // live typing in the page card
+  const typedEl = $("#typed");
+  const lines = ["Ship the login flow and fix the navbar.", "Password reset goes out with Sprint 1.", "Owner for docs: Marco. Due Friday."];
+  (async () => {
+    if (reduce) { typedEl.textContent = lines[0]; return; }
+    for (let n = 0; ; n = (n + 1) % lines.length) {
+      for (const ch of lines[n]) { typedEl.textContent += ch; await sleep(38 + Math.random() * 50); }
+      await sleep(1800);
+      while (typedEl.textContent.length) { typedEl.textContent = typedEl.textContent.slice(0, -1); await sleep(14); }
+      await sleep(300);
+    }
+  })();
+
+  // time tracking demo: auto-types entries, updates total + share bar
+  const people = { You: 0, Aisha: 0, Marco: 0 };
+  const script = [
+    ["You", "1h 30m", 90, "Reproduced navbar overlap on mobile"],
+    ["Aisha", "45m", 45, "Reviewed fix and edge cases"],
+    ["You", "30m", 30, "Added regression test"],
+    ["Marco", "1h", 60, "Updated release notes"],
+  ];
+  const totalEl = $("#ttTotal"), typedT = $("#ttTyped"), list = $("#ttEntries"), btn = $("#ttBtn");
+  let shown = 0;
+  const animateTotal = (to) => {
+    const from = shown; shown = to; if (reduce) { totalEl.textContent = fmt(to); return; }
+    const t0 = performance.now();
+    const step = (t) => { const k = Math.min(1, (t - t0) / 600); totalEl.textContent = fmt(Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  };
+  const paintShares = () => {
+    const total = Object.values(people).reduce((a, b) => a + b, 0) || 1;
+    ["You", "Aisha", "Marco"].forEach((p, i) => { $(`#s${i + 1}`).style.width = `${(people[p] / total) * 100}%`; $(`#l${i + 1}`).textContent = fmt(people[p]); });
+  };
+  const addEntry = (who, mins, note) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="d"></span><span class="m"></span><span style="color:var(--ink-3)"></span>`;
+    li.children[0].textContent = fmt(mins); li.children[1].textContent = note; li.children[2].textContent = who;
+    list.prepend(li);
+    while (list.children.length > 4) list.lastElementChild.remove();
+    people[who] += mins; paintShares(); animateTotal(Object.values(people).reduce((a, b) => a + b, 0));
+  };
+  const ttPanel = $(".panel-3d");
+  once.set(ttPanel, async () => {
+    if (reduce) { script.forEach(([w, , m, n]) => addEntry(w, m, n)); return; }
+    for (;;) {
+      for (const [who, txt, mins, note] of script) {
+        for (const ch of txt) { typedT.textContent += ch; await sleep(110); }
+        $$(".quick span").forEach((q) => q.classList.toggle("hit", q.textContent === txt));
+        await sleep(350); btn.classList.add("press"); await sleep(140); btn.classList.remove("press");
+        addEntry(who, mins, note); typedT.textContent = "";
+        await sleep(400); $$(".quick span").forEach((q) => q.classList.remove("hit"));
+        await sleep(1500);
+      }
+      await sleep(2500);
+      list.innerHTML = ""; Object.keys(people).forEach((k) => (people[k] = 0)); paintShares(); animateTotal(0);
+      await sleep(800);
+    }
+  });
+
+  // live kanban with FLIP animation
+  const kanban = $("#kanban");
+  const cols = $$(".col", kanban);
+  const cards = [
+    ["WEB-7", "Add login form validation", "0m"], ["WEB-3", "Write API docs", "20m"], ["WEB-9", "Dark mode toggle", "0m"],
+    ["WEB-1", "Design login page", "2h"], ["WEB-4", "Set up password reset", "1h 15m"],
+    ["WEB-2", "Fix navbar bug", "2h 15m"], ["WEB-5", "Rate-limit auth endpoints", "50m"],
+  ];
+  const place = [0, 0, 0, 1, 1, 2, 3];
+  const els = cards.map(([id, name, time], i) => {
+    const c = document.createElement("div"); c.className = "kcard";
+    c.innerHTML = `<div class="id"></div><div></div><div class="ft"><span class="time"></span><span class="tag"></span></div>`;
+    c.children[0].textContent = id; c.children[1].textContent = name; c.querySelector(".time").textContent = "⏱ " + time;
+    c.querySelector(".tag").textContent = ["low", "high", "urgent", "medium"][i % 4];
+    cols[place[i]].append(c); return c;
+  });
+  const recount = () => cols.forEach((col) => ($(".ct", col).textContent = col.querySelectorAll(".kcard").length));
+  recount();
+  const moveCard = (el, toCol) => {
+    const first = el.getBoundingClientRect();
+    const siblings = $$(".kcard", kanban).filter((c) => c !== el).map((c) => [c, c.getBoundingClientRect()]);
+    toCol.insertBefore(el, toCol.children[1] || null); recount();
+    const last = el.getBoundingClientRect();
+    el.classList.add("moving");
+    el.animate([{ transform: `translate(${first.left - last.left}px, ${first.top - last.top}px) rotate(-2deg) scale(1.03)` }, { transform: "none" }], { duration: 700, easing: "cubic-bezier(.2,.8,.2,1)" }).onfinish = () => el.classList.remove("moving");
+    siblings.forEach(([c, r]) => { const n = c.getBoundingClientRect(); if (n.top !== r.top || n.left !== r.left) c.animate([{ transform: `translate(${r.left - n.left}px, ${r.top - n.top}px)` }, { transform: "none" }], { duration: 500, easing: "cubic-bezier(.2,.8,.2,1)" }); });
+  };
+  if (!reduce) {
+    let visible = false;
+    new IntersectionObserver(([e]) => (visible = e.isIntersecting), { threshold: 0.2 }).observe(kanban);
+    setInterval(() => {
+      if (!visible) return;
+      // advance the oldest card that is not done; when everything is done, reset to backlog
+      const candidates = cols.slice(0, 3).flatMap((col, ci) => $$(".kcard", col).map((el) => [el, ci]));
+      if (!candidates.length) { els.forEach((el, i) => cols[place[i]].append(el)); recount(); return; }
+      const [el, ci] = candidates[candidates.length - 1];
+      moveCard(el, cols[ci + 1]);
+    }, 2200);
+  }
+
+  // timesheet demo: two example weeks, cells re-shade when switching
+  const weeks = [
+    { label: "Oct 19 – 23", rows: { You: [90, 120, 0, 135, 60], Aisha: [45, 60, 150, 30, 90], Marco: [0, 60, 45, 120, 0] } },
+    { label: "Oct 26 – 30", rows: { You: [60, 0, 90, 180, 45], Aisha: [120, 90, 0, 60, 30], Marco: [30, 45, 60, 0, 90] } },
+  ];
+  const tsBody = $("#tsBody"), tsFoot = $("#tsFoot");
+  const tsCells = Object.keys(weeks[0].rows).map((who) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td></td>" + "<td><i>·</i></td>".repeat(5) + "<td>0m</td>";
+    tr.firstChild.textContent = who;
+    tsBody.append(tr);
+    return tr;
+  });
+  tsFoot.innerHTML = "<td>Daily</td>" + "<td>·</td>".repeat(5) + "<td>0m</td>";
+  let wi = weeks.length - 1;
+  const showWeek = () => {
+    const w = weeks[wi], max = Math.max(...Object.values(w.rows).flat());
+    $("#tsLabel").textContent = w.label;
+    $("#tsPrev").disabled = wi === 0; $("#tsNext").disabled = wi === weeks.length - 1;
+    Object.values(w.rows).forEach((mins, r) => {
+      mins.forEach((m, d) => {
+        const cell = tsCells[r].children[d + 1].firstChild;
+        cell.style.transitionDelay = reduce ? "0ms" : `${(r * 5 + d) * 35}ms`;
+        cell.style.setProperty("--h", m ? 14 + (m / max) * 52 : 0);
+        cell.style.setProperty("--h-ink", m ? "var(--ink)" : "var(--ink-3)");
+        cell.textContent = m ? fmt(m) : "·";
+      });
+      tsCells[r].lastChild.textContent = fmt(mins.reduce((a, b) => a + b, 0));
+    });
+    const days = [0, 1, 2, 3, 4].map((d) => Object.values(w.rows).reduce((a, mins) => a + mins[d], 0));
+    days.forEach((m, d) => (tsFoot.children[d + 1].textContent = m ? fmt(m) : "·"));
+    tsFoot.lastChild.textContent = fmt(days.reduce((a, b) => a + b, 0));
+  };
+  $("#tsPrev").addEventListener("click", () => { if (wi > 0) { wi--; showWeek(); } });
+  $("#tsNext").addEventListener("click", () => { if (wi < weeks.length - 1) { wi++; showWeek(); } });
+  once.set($("#tsCard"), showWeek);
+
+  // smart search demo: real queries and scores from the local embedder, same 0.1 "best match" window as the app
+  const searches = [
+    ["the app feels sluggish", [[6, "Users report slow dashboard", .71], [2, "Fix navbar bug", .536], [1, "Design login page", .481], [3, "Write API docs", .476], [4, "Set up password reset", .444], [5, "Add login form validation", .389]]],
+    ["users can't log in", [[1, "Design login page", .603], [6, "Users report slow dashboard", .56], [4, "Set up password reset", .558], [5, "Add login form validation", .532], [2, "Fix navbar bug", .51], [3, "Write API docs", .43]]],
+    ["we need documentation for developers", [[3, "Write API docs", .679], [1, "Design login page", .581], [6, "Users report slow dashboard", .537], [5, "Add login form validation", .504], [2, "Fix navbar bug", .498], [4, "Set up password reset", .495]]],
+    ["top menu looks broken on phones", [[2, "Fix navbar bug", .611], [1, "Design login page", .54], [6, "Users report slow dashboard", .501], [4, "Set up password reset", .479], [5, "Add login form validation", .44], [3, "Write API docs", .398]]],
+  ];
+  const srTyped = $("#srTyped"), srList = $("#srList");
+  const showResults = (rows) => {
+    const best = rows[0][2], worst = rows[rows.length - 1][2];
+    const strong = rows.filter((r) => r[2] >= best - 0.1);
+    srList.innerHTML = "";
+    strong.forEach(([seq, name, score], i) => {
+      const li = document.createElement("li");
+      li.style.animationDelay = `${i * 60}ms`;
+      li.innerHTML = '<span class="id"></span><span></span><span class="bar"><i></i></span>';
+      li.children[0].textContent = `WEB-${seq}`; li.children[1].textContent = name;
+      srList.append(li);
+      requestAnimationFrame(() => requestAnimationFrame(() => (li.querySelector("i").style.width = `${12 + ((score - worst) / (best - worst)) * 88}%`)));
+    });
+    const more = document.createElement("li");
+    more.style.animationDelay = `${strong.length * 60}ms`;
+    more.className = "more";
+    more.textContent = `Show ${rows.length - strong.length} weaker matches`;
+    srList.append(more);
+  };
+  once.set($("#srCard"), async () => {
+    if (reduce) { srTyped.textContent = searches[0][0]; showResults(searches[0][1]); return; }
+    for (let n = 0; ; n = (n + 1) % searches.length) {
+      const [q, rows] = searches[n];
+      for (const ch of q) { srTyped.textContent += ch; await sleep(45 + Math.random() * 40); }
+      await sleep(250);
+      showResults(rows);
+      await sleep(3200);
+      srList.innerHTML = "";
+      while (srTyped.textContent.length) { srTyped.textContent = srTyped.textContent.slice(0, -1); await sleep(12); }
+      await sleep(250);
+    }
+  });
+
+  // copy command
+  $("#copyBtn").addEventListener("click", async () => {
+    const text = "docker compose -p plane --env-file plane.env -f docker-compose.yml -f docker-compose.local.yml up -d";
+    try { await navigator.clipboard.writeText(text); $("#copyBtn").textContent = "copied"; } catch { $("#copyBtn").textContent = "select & copy"; }
+    setTimeout(() => ($("#copyBtn").textContent = "copy"), 1600);
+  });
+})();
+</script>
+</body>
+</html>

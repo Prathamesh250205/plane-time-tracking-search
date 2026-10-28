@@ -8,7 +8,7 @@ A fork of [Plane](https://github.com/makeplane/plane), the open-source project m
 
 Everything is self-hosted. No API keys, and no data leaves the server.
 
-**[See the landing page →](https://claude.ai/artifact/DQr3vJ58W67btFhsTuTb1U)**
+**[See the landing page →](https://prathamesh250205.github.io/plane-time-tracking-search/)** · **[Try the live demo →](https://plane-demo-v6r4p4rw5rxqf54j-80.app.github.dev)** (runs in a GitHub Codespace, so it's only up while the codespace is running)
 
 > Looking for Plane itself? See the [upstream README](https://github.com/makeplane/plane#readme).
 

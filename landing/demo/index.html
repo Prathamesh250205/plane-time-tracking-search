@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plane + Time Tracking: live demo</title>
+<meta name="description" content="Try time tracking, project timesheets and AI smart search from the Plane extension, running entirely in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f4f0; --bg-2: #ecebe5; --surface: #ffffff;
+    --ink: #121212; --ink-2: #4a4a47; --ink-3: #85847e;
+    --line: rgba(18,18,18,.09); --line-2: rgba(18,18,18,.16);
+    --accent: #ff5a1f; --accent-soft: rgba(255,90,31,.12); --good: #1f9d55; --bad: #d4442a;
+    --radius: 12px;
+    --sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0d0c; --bg-2: #161614; --surface: #1a1a18;
+      --ink: #f2f1ec; --ink-2: #b6b5ae; --ink-3: #7c7b75;
+      --line: rgba(255,255,255,.08); --line-2: rgba(255,255,255,.15); --accent-soft: rgba(255,90,31,.16);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d0d0c; --bg-2: #161614; --surface: #1a1a18;
+    --ink: #f2f1ec; --ink-2: #b6b5ae; --ink-3: #7c7b75;
+    --line: rgba(255,255,255,.08); --line-2: rgba(255,255,255,.15); --accent-soft: rgba(255,90,31,.16);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  button, input { font: inherit; color: inherit; }
+  .mono { font-family: var(--mono); font-feature-settings: "tnum"; }
+  .wrap { width: min(1160px, 100% - 32px); margin-inline: auto; }
+
+  header { border-bottom: 1px solid var(--line); background: var(--surface); }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 58px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; text-decoration: none; }
+  .brand-mark { width: 22px; height: 22px; border-radius: 6px; background: var(--ink); position: relative; flex: none; }
+  .brand-mark::after { content: ""; position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); }
+  .links { display: flex; gap: 8px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--surface); font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; white-space: nowrap; }
+  .btn:hover { border-color: var(--ink-3); }
+  .btn-primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  .note { margin: 18px 0 0; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); color: var(--ink-2); font-size: 13px; }
+  .tabs { display: flex; gap: 4px; margin: 18px 0 16px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .tab { padding: 10px 14px; border: 0; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; color: var(--ink-2); font-weight: 500; white-space: nowrap; }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .view[hidden] { display: none; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .muted { color: var(--ink-3); }
+  .id { font-family: var(--mono); font-size: 12px; color: var(--ink-3); flex: none; width: 56px; }
+
+  /* work items */
+  .items-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .list { list-style: none; margin: 0; padding: 4px; }
+  .list li button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px; border: 0; border-radius: 8px; background: none; text-align: left; cursor: pointer; }
+  .list li button:hover { background: var(--bg-2); }
+  .list li button[aria-current="true"] { background: var(--accent-soft); }
+  .list .name { flex: 1; min-width: 0; }
+  .list .t { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+  .detail { padding: 20px; position: sticky; top: 12px; }
+  .detail h2 { margin: 4px 0 6px; font-size: 20px; letter-spacing: -.01em; }
+  .prop { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0; border-block: 1px solid var(--line); margin: 16px 0; }
+  .total { font-family: var(--mono); font-size: 22px; font-weight: 500; }
+  form.log { display: grid; grid-template-columns: 120px 1fr auto; gap: 8px; }
+  input[type="text"], input[type="search"] { height: 38px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 9px; background: var(--bg); min-width: 0; width: 100%; }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .err { color: var(--bad); font-size: 13px; min-height: 20px; margin: 4px 0 0; }
+  .entries { list-style: none; margin: 8px 0 0; padding: 0; }
+  .entries li { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .entries .who { width: 74px; flex: none; color: var(--ink-2); }
+  .entries .what { flex: 1; min-width: 0; color: var(--ink-2); }
+  .entries .dur { font-family: var(--mono); }
+  .del { border: 0; background: none; color: var(--ink-3); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+  .del:hover { color: var(--bad); background: var(--bg-2); }
+
+  /* timesheet */
+  .ts-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ts-head .wk { font-weight: 600; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .stat { padding: 14px 16px; }
+  .stat b { display: block; font: 500 22px var(--mono); }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-weight: 500; color: var(--ink-3); font-size: 12px; }
+  td.cell { font-family: var(--mono); }
+  tfoot td { font-weight: 600; font-family: var(--mono); border-bottom: 0; }
+  tfoot td:first-child { font-family: var(--sans); }
+  .bars { list-style: none; margin: 0; padding: 6px 16px 14px; }
+  .bars li { display: grid; grid-template-columns: 56px minmax(0, 1fr) 70px; gap: 10px; align-items: center; padding: 6px 0; font-size: 14px; }
+  .bars .track { grid-column: 2; height: 6px; border-radius: 3px; background: var(--bg-2); overflow: hidden; }
+  .bars .track i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  .bars .h { text-align: right; font-family: var(--mono); grid-row: span 2; }
+  .bars .n { grid-column: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bars .id { grid-row: span 2; }
+  h3 { margin: 0; padding: 14px 16px 4px; font-size: 14px; }
+
+  /* search */
+  .search-box { display: flex; gap: 8px; padding: 16px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 14px; }
+  .chip { border: 1px solid var(--line-2); background: var(--bg); border-radius: 999px; padding: 4px 10px; font-size: 13px; cursor: pointer; }
+  .chip:hover { border-color: var(--ink-3); }
+  .status { padding: 0 16px 12px; font-size: 13px; color: var(--ink-3); min-height: 32px; }
+  .results { list-style: none; margin: 0; padding: 0 8px 8px; }
+  .results li { display: grid; grid-template-columns: 56px minmax(0, 1fr) 120px 44px; gap: 10px; align-items: center; padding: 10px 8px; border-top: 1px solid var(--line); }
+  .results .track { height: 6px; border-radius: 3px; background: var(--bg-2); overflow: hidden; }
+  .results .track i { display: block; height: 100%; background: var(--accent); }
+  .results .s { font-family: var(--mono); font-size: 12px; color: var(--ink-3); text-align: right; }
+  .results .desc { display: block; font-size: 13px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .results li.weak { opacity: .55; }
+  .more { margin: 0 16px 16px; }
+
+  footer { margin: 28px 0 40px; font-size: 13px; color: var(--ink-3); }
+
+  @media (max-width: 760px) {
+    .items-grid { grid-template-columns: 1fr; }
+    .detail { position: static; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    form.log { grid-template-columns: 1fr 1fr; }
+    form.log button { grid-column: span 2; }
+    .results li { grid-template-columns: 50px minmax(0, 1fr) 40px; }
+    .results .track { display: none; }
+    .links .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <a class="brand" href="../"><span class="brand-mark" aria-hidden="true"></span>Plane <span class="muted" style="font-weight:400">+ Time · live demo</span></a>
+    <div class="links">
+      <button class="btn hide-sm" id="reset" type="button">Reset demo</button>
+      <a class="btn btn-primary" href="https://github.com/Prathamesh250205/plane-time-tracking-search" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="note">This demo runs entirely in your browser: sample data is saved on your device, and smart search runs the same <span class="mono">bge-small-en-v1.5</span> embedding model as the real search microservice. In the full app, everything here is served by Django and PostgreSQL.</p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-items" aria-controls="items" aria-selected="true">Work items</button>
+    <button class="tab" role="tab" id="tab-timesheet" aria-controls="timesheet" aria-selected="false">Timesheet</button>
+    <button class="tab" role="tab" id="tab-search" aria-controls="search" aria-selected="false">Smart search</button>
+  </div>
+
+  <section class="view" id="items" role="tabpanel" aria-labelledby="tab-items">
+    <div class="items-grid">
+      <div class="card"><ul class="list" id="itemList"></ul></div>
+      <div class="card detail" id="detail"></div>
+    </div>
+  </section>
+
+  <section class="view" id="timesheet" role="tabpanel" aria-labelledby="tab-timesheet" hidden>
+    <div class="ts-head">
+      <div><div class="wk" id="wkLabel"></div><div class="muted" style="font-size:13px">Hours by person and day for the Website project</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn" id="wkPrev" type="button" aria-label="Previous week">←</button>
+        <button class="btn" id="wkNow" type="button">This week</button>
+        <button class="btn" id="wkNext" type="button" aria-label="Next week">→</button>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="card scroll" style="margin-bottom:14px"><table id="grid"></table></div>
+    <div class="card"><h3>By work item</h3><ul class="bars" id="byItem"></ul></div>
+  </section>
+
+  <section class="view" id="search" role="tabpanel" aria-labelledby="tab-search" hidden>
+    <div class="card">
+      <form class="search-box" id="searchForm">
+        <input type="search" id="q" placeholder="e.g. users can't log in" aria-label="Search work items by meaning" autocomplete="off">
+        <button class="btn btn-primary" type="submit" id="go" style="height:38px">Search</button>
+      </form>
+      <div class="examples" id="examples"></div>
+      <div class="status" id="status" aria-live="polite">Matches by meaning, not keywords. Try a phrase that shares no words with the item titles.</div>
+      <ul class="results" id="results"></ul>
+      <button class="btn more" id="more" type="button" hidden></button>
+    </div>
+  </section>
+
+  <footer>Built on <a href="https://github.com/makeplane/plane" rel="noopener">Plane</a> (AGPL-3.0). Time tracking and smart search are an independent extension by Prathamesh Gulavani.</footer>
+</main>
+
+<script type="module">
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// ---------- duration parsing (same formats the app accepts) ----------
+function parseDuration(text) {
+  const s = text.trim().toLowerCase();
+  if (!s) return null;
+  let m = s.match(/^(\d+):([0-5]\d)$/);
+  if (m) return +m[1] * 60 + +m[2];
+  m = s.match(/^(?:(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?)?\s*(?:(\d+)\s*m(?:in(?:ute)?s?)?)?$/);
+  if (m && (m[1] || m[2])) return Math.round((+(m[1] || 0)) * 60 + +(m[2] || 0)) || null;
+  m = s.match(/^\d+$/);
+  return m ? +s || null : null; // a bare number means minutes
+}
+const fmt = (min) => (min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ""}` : `${min}m`);
+
+// ---------- sample data ----------
+const ITEMS = [
+  [1, "Design login page", "Create the sign-in screen with email and password fields."],
+  [2, "Fix navbar bug on mobile", "The top navigation overlaps the content on small screens."],
+  [3, "Write API docs", "Document the REST endpoints for third-party developers."],
+  [4, "Add login form validation", "Show clear errors for an invalid email or a short password."],
+  [5, "Users report slow dashboard", "The dashboard takes a long time to load for big workspaces."],
+  [6, "Checkout page takes 8 seconds to load", "Customers abandon carts because the payment step is slow on 4G."],
+  [7, "Password reset email never arrives", "Users click 'forgot password' but no email reaches the inbox."],
+  [8, "Add dark mode toggle to settings", "Let users switch between light and dark themes."],
+  [9, "Crash when uploading a profile photo larger than 5 MB", "The app freezes and then shows a blank screen."],
+  [10, "Set up nightly database backups", "Automate Postgres backups to object storage every night."],
+  [11, "Search results show deleted products", "Archived items still appear in the store search."],
+  [12, "Improve onboarding for first-time users", "New users don't know where to start after sign-up."],
+  [13, "Migrate CI pipeline to GitHub Actions", "Move build and test jobs off the old Jenkins server."],
+].map(([seq, name, desc]) => ({ seq, name, desc }));
+
+const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const monday = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+
+function sampleLogs() { // [seq, minutes, weekday offset, person, note], placed in the current week so the timesheet is never empty
+  const wk = monday(new Date());
+  return [
+    [5, 150, 0, "Aisha", "Profiled API queries"], [2, 45, 0, "Rahul", "Reproduced on iOS Safari"],
+    [6, 120, 1, "Aisha", "Added caching for cart totals"], [5, 90, 1, "Rahul", "Added DB index"],
+    [4, 60, 1, "Neha", ""], [7, 75, 2, "Rahul", "Fixed SMTP config"], [3, 105, 2, "Neha", ""],
+    [10, 50, 2, "Aisha", ""], [13, 120, 3, "Neha", ""], [1, 80, -3, "Neha", "First wireframes"],
+    [5, 60, -2, "Aisha", "Collected slow-query logs"],
+  ].map(([seq, minutes, off, who, note], i) => ({ id: `s${i}`, seq, minutes, day: dayKey(addDays(wk, off)), who, note }));
+}
+
+const KEY = "plane-time-demo-v1";
+let logs;
+try { logs = JSON.parse(localStorage.getItem(KEY)); } catch { logs = null; }
+if (!Array.isArray(logs)) logs = sampleLogs();
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(logs)); } catch {} };
+
+// ---------- tabs ----------
+const tabs = [...document.querySelectorAll(".tab")];
+function show(id) {
+  tabs.forEach((t) => t.setAttribute("aria-selected", String(t.getAttribute("aria-controls") === id)));
+  document.querySelectorAll(".view").forEach((v) => (v.hidden = v.id !== id));
+  if (id === "timesheet") renderTimesheet();
+  if (id === "search") $("#q").focus();
+  history.replaceState(null, "", `#${id}`);
+}
+tabs.forEach((t) => t.addEventListener("click", () => show(t.getAttribute("aria-controls"))));
+
+// ---------- work items + time logging ----------
+let current = 9;
+const totalFor = (seq) => logs.filter((l) => l.seq === seq).reduce((a, l) => a + l.minutes, 0);
+
+function renderList() {
+  $("#itemList").innerHTML = ITEMS.map((it) => {
+    const t = totalFor(it.seq);
+    return `<li><button type="button" data-seq="${it.seq}" aria-current="${it.seq === current}"><span class="id">WEB-${it.seq}</span><span class="name">${esc(it.name)}</span><span class="t">${t ? fmt(t) : ""}</span></button></li>`;
+  }).join("");
+}
+$("#itemList").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-seq]");
+  if (!b) return;
+  current = +b.dataset.seq; renderList(); renderDetail();
+  if (matchMedia("(max-width: 760px)").matches) $("#detail").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+function renderDetail() {
+  const it = ITEMS.find((i) => i.seq === current);
+  const mine = logs.filter((l) => l.seq === current).sort((a, b) => b.day.localeCompare(a.day));
+  $("#detail").innerHTML = `
+    <span class="id">WEB-${it.seq}</span>
+    <h2>${esc(it.name)}</h2>
+    <p class="muted" style="margin:0">${esc(it.desc)}</p>
+    <div class="prop"><span>Time logged</span><span class="total">${fmt(totalFor(current)) }</span></div>
+    <form class="log" id="logForm" novalidate>
+      <input type="text" id="dur" placeholder="1h 30m" aria-label="Time spent" autocomplete="off">
+      <input type="text" id="noteIn" placeholder="What did you work on? (optional)" aria-label="Note" maxlength="120" autocomplete="off">
+      <button class="btn btn-primary" type="submit" style="height:38px">Log time</button>
+    </form>
+    <p class="err" id="err"></p>
+    <div class="muted" style="font-size:12px">Accepts 1h 30m, 90m, 1.5h or 1:30. You can delete only your own entries.</div>
+    <ul class="entries">${mine.map((l) => `
+      <li><span class="who">${esc(l.who)}</span><span class="what">${esc(l.note || "—")} <span class="muted mono" style="font-size:12px">· ${l.day.slice(5)}</span></span>
+      <span class="dur">${fmt(l.minutes)}</span>${l.who === "You" ? `<button class="del" type="button" data-id="${l.id}" aria-label="Delete entry">✕</button>` : ""}</li>`).join("") || '<li class="muted">No time logged yet.</li>'}
+    </ul>`;
+}
+$("#detail").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const minutes = parseDuration($("#dur").value);
+  if (!minutes || minutes > 24 * 60) { $("#err").textContent = "Enter a duration like 1h 30m (up to 24h)."; $("#dur").focus(); return; }
+  logs.push({ id: `u${Date.now()}`, seq: current, minutes, day: dayKey(new Date()), who: "You", note: $("#noteIn").value.trim() });
+  save(); renderList(); renderDetail();
+});
+$("#detail").addEventListener("click", (e) => {
+  const b = e.target.closest(".del");
+  if (!b) return;
+  logs = logs.filter((l) => !(l.id === b.dataset.id && l.who === "You"));
+  save(); renderList(); renderDetail();
+});
+
+// ---------- timesheet ----------
+let week = monday(new Date());
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function renderTimesheet() {
+  const days = DAYS.map((_, i) => dayKey(addDays(week, i)));
+  const inWeek = logs.filter((l) => days.includes(l.day));
+  const people = [...new Set(inWeek.map((l) => l.who))].sort();
+  const sum = (f) => inWeek.filter(f).reduce((a, l) => a + l.minutes, 0);
+  const total = sum(() => true);
+  const opts = { month: "short", day: "numeric" };
+  $("#wkLabel").textContent = `${week.toLocaleDateString("en", opts)} – ${addDays(week, 6).toLocaleDateString("en", { ...opts, year: "numeric" })}`;
+  const daily = days.map((d) => sum((l) => l.day === d));
+  const busiest = Math.max(...daily);
+  $("#stats").innerHTML = [
+    ["Total logged", fmt(total)], ["People", people.length],
+    ["Work items", new Set(inWeek.map((l) => l.seq)).size], ["Busiest day", busiest ? DAYS[daily.indexOf(busiest)] : "—"],
+  ].map(([k, v]) => `<div class="card stat"><span class="muted" style="font-size:12px">${k}</span><b>${v}</b></div>`).join("");
+  const cell = (m) => `<td class="cell">${m ? fmt(m) : '<span class="muted">·</span>'}</td>`;
+  $("#grid").innerHTML = `<thead><tr><th>Person</th>${days.map((d, i) => `<th>${DAYS[i]} ${+d.slice(8)}</th>`).join("")}<th>Total</th></tr></thead>
+    <tbody>${people.map((p) => `<tr><td>${esc(p)}</td>${days.map((d) => cell(sum((l) => l.who === p && l.day === d))).join("")}${cell(sum((l) => l.who === p))}</tr>`).join("")
+      || `<tr><td colspan="9" class="muted" style="text-align:center">No time logged this week.</td></tr>`}</tbody>
+    <tfoot><tr><td>Daily total</td>${daily.map((m) => `<td>${m ? fmt(m) : "·"}</td>`).join("")}<td>${fmt(total)}</td></tr></tfoot>`;
+  const per = ITEMS.map((it) => [it, sum((l) => l.seq === it.seq)]).filter(([, m]) => m).sort((a, b) => b[1] - a[1]);
+  $("#byItem").innerHTML = per.map(([it, m]) => `<li><span class="id">WEB-${it.seq}</span><span class="n">${esc(it.name)}</span><span class="h">${fmt(m)}</span><span class="track"><i style="width:${(m / per[0][1]) * 100}%"></i></span></li>`).join("")
+    || '<li class="muted">Nothing logged this week.</li>';
+}
+$("#wkPrev").onclick = () => { week = addDays(week, -7); renderTimesheet(); };
+$("#wkNext").onclick = () => { week = addDays(week, 7); renderTimesheet(); };
+$("#wkNow").onclick = () => { week = monday(new Date()); renderTimesheet(); };
+
+$("#reset").onclick = () => { logs = sampleLogs(); save(); renderList(); renderDetail(); renderTimesheet(); };
+
+// ---------- smart search: bge-small-en-v1.5 in the browser, embeddings cached per item ----------
+const EXAMPLES = ["the app feels sluggish", "users can't log in", "we need documentation for developers", "top menu looks broken on phones", "losing data if the server dies"];
+$("#examples").innerHTML = EXAMPLES.map((q) => `<button class="chip" type="button">${esc(q)}</button>`).join("");
+$("#examples").addEventListener("click", (e) => { const b = e.target.closest(".chip"); if (b) { $("#q").value = b.textContent; runSearch(); } });
+
+let embedder, itemVecs;
+async function loadModel() {
+  if (!embedder) {
+    embedder = (async () => {
+      const { pipeline } = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2");
+      const extract = await pipeline("feature-extraction", "Xenova/bge-small-en-v1.5", {
+        dtype: "q8",
+        progress_callback: (p) => { if (p.status === "progress" && p.file?.endsWith(".onnx")) $("#status").textContent = `Loading the embedding model (one time, ~34 MB)… ${Math.round(p.progress)}%`; },
+      });
+      return async (texts) => (await extract(texts, { pooling: "cls", normalize: true })).tolist();
+    })();
+  }
+  return embedder;
+}
+const dot = (a, b) => a.reduce((s, x, i) => s + x * b[i], 0);
+
+let lastRows = [];
+async function runSearch() {
+  const q = $("#q").value.trim();
+  if (!q) { $("#q").focus(); return; }
+  $("#go").disabled = true; $("#results").innerHTML = ""; $("#more").hidden = true;
+  try {
+    $("#status").textContent = "Loading the embedding model…";
+    const embed = await loadModel();
+    const t0 = performance.now();
+    if (!itemVecs) { $("#status").textContent = "Embedding 13 work items (cached after the first search)…"; itemVecs = await embed(ITEMS.map((i) => `${i.name}. ${i.desc}`)); }
+    // bge retrieval: queries get the instruction prefix, documents don't
+    const [qv] = await embed([`Represent this sentence for searching relevant passages: ${q}`]);
+    lastRows = ITEMS.map((it, i) => ({ it, score: dot(qv, itemVecs[i]) })).sort((a, b) => b.score - a.score);
+    renderResults(false);
+    $("#status").textContent = `Ranked 13 work items by meaning in ${Math.round(performance.now() - t0)} ms. Best matches are within 0.1 of the top score.`;
+  } catch (err) {
+    console.error(err);
+    embedder = null;
+    $("#status").textContent = "Couldn't load the model. Check your connection and try again.";
+  } finally { $("#go").disabled = false; }
+}
+function renderResults(all) {
+  const best = lastRows[0].score, worst = lastRows[lastRows.length - 1].score;
+  const strong = lastRows.filter((r) => r.score >= best - 0.1);
+  const rows = all ? lastRows : strong;
+  $("#results").innerHTML = rows.map(({ it, score }) => `<li class="${score < best - 0.1 ? "weak" : ""}"><span class="id">WEB-${it.seq}</span>
+    <span>${esc(it.name)}<span class="desc">${esc(it.desc)}</span></span>
+    <span class="track"><i style="width:${12 + ((score - worst) / (best - worst || 1)) * 88}%"></i></span><span class="s">${score.toFixed(2)}</span></li>`).join("");
+  const weaker = lastRows.length - strong.length;
+  $("#more").hidden = !weaker;
+  $("#more").textContent = all ? "Show best matches only" : `Show ${weaker} weaker matches`;
+  $("#more").onclick = () => renderResults(!all);
+}
+$("#searchForm").addEventListener("submit", (e) => { e.preventDefault(); runSearch(); });
+$("#q").addEventListener("focus", () => loadModel().catch(() => (embedder = null)), { once: true });
+
+renderList(); renderDetail();
+const fromHash = () => { const id = location.hash.slice(1); if (["items", "timesheet", "search"].includes(id)) show(id); };
+addEventListener("hashchange", fromHash);
+fromHash();
+</script>
+</body>
+</html>
